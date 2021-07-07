@@ -1,15 +1,35 @@
 -include $(TMPDIR)/dotnet.config
 $(TMPDIR)/dotnet.config: $(TOP)/build/Versions.props
 	@mkdir -p $(TMPDIR)
-	@grep "<_DefaultTargetDotnetVersion>" build/Versions.props | sed -e 's/<\/*_DefaultTargetDotnetVersion>//g' -e 's/[ \t]*/TARGET_DOTNET_VERSION=/' > $@
+	@grep "<MicrosoftDotnetSdkInternalPackageVersion>" build/Versions.props | sed -e 's/<\/*MicrosoftDotnetSdkInternalPackageVersion>//g' -e 's/[ \t]*/TARGET_DOTNET_VERSION=/' > $@
 
 ifeq ($(DESTVER),)
-TARGET_DOTNET_VERSION_BAND=$(firstword $(subst -, ,$(TARGET_DOTNET_VERSION)))
+TARGET_DOTNET_VERSION_BAND = $(firstword $(subst -, ,$(TARGET_DOTNET_VERSION)))
 else
-TARGET_DOTNET_VERSION_BAND=$(firstword $(subst -, ,$(DESTVER)))
+TARGET_DOTNET_VERSION = $(DESTVER)
+TARGET_DOTNET_VERSION_BAND = $(firstword $(subst -, ,$(DESTVER)))
 endif
 
+ifeq ($(DESTDIR),)
+TARGET_DOTNET_DIR = $(TOP)/tools/dotnet
+else
+TARGET_DOTNET_DIR = $(DESTDIR)
+endif
 
+TARGET_DOTNET_MANIFEST_BAND_DIR = $(TARGET_DOTNET_DIR)/sdk-manifests/$(TARGET_DOTNET_VERSION_BAND)
+
+# DOTNET6
+DOTNET6 = $(TARGET_DOTNET_DIR)/dotnet
+
+$(TOP)/tools/dotnet-install.sh:
+	@mkdir -p $(TOP)/tools
+	@curl -o $@ \
+		https://dotnet.microsoft.com/download/dotnet/scripts/v1/dotnet-install.sh
+
+$(DOTNET6): $(TOP)/tools/dotnet-install.sh
+	@bash $< -v $(TARGET_DOTNET_VERSION) -i $(TARGET_DOTNET_DIR)
+
+# COMMIT DISTANCE and HASH
 TIZEN_VERSION_BLAME_COMMIT := $(shell git blame $(TOP)/Versions.mk HEAD | grep TIZEN_PACK_VERSION | sed 's/ .*//')
 TIZEN_COMMIT_DISTANCE := $(shell git log $(TIZEN_VERSION_BLAME_COMMIT)..HEAD --oneline | wc -l)
 
